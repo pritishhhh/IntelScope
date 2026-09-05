@@ -1,0 +1,25 @@
+{
+  "model": "distilbert-base-uncased",
+  "dataset": "Banking77",
+  "classes": 77,
+  "epochs": 25,
+  "batch_size": 64,
+  "learning_rate": 2e-05,
+  "best_epoch": 14,
+  "best_validation_macro_f1": 0.9250085443060129,
+  "test": {
+    "accuracy": 0.9181818181818182,
+    "macro_precision": 0.9215514935145839,
+    "macro_recall": 0.9181818181818182,
+    "macro_f1": 0.9183361494778409,
+    "weighted_f1": 0.9183361494778411
+  },
+  "most_confused_pair": [
+    "why_verify_identity",
+    "verify_my_identity"
+  ],
+  "mutual_confusions": 10,
+  "test_errors": 252,
+  "avg_confidence_correct": 0.9575012922286987,
+  "avg_confidence_incorrect": 0.686957836151123
+}

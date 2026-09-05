@@ -1,0 +1,14 @@
+# Large local assets and checkpoints are not suitable for GitHub.
+intentscope-offline-assets/
+**/best_model/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Keep only reviewable result artifacts.
+results/*.npy
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+.DS_Store
