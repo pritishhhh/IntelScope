@@ -43,6 +43,10 @@ This result is credible for this setting because validation is stratified across
 
 The final test evaluation used the epoch-14 checkpoint once, after validation-based selection. The test set was not used to select epochs or hyperparameters. The test macro F1 is within 0.0067 of the held-out validation macro F1, supporting the conclusion that performance transferred rather than being specific to one split.
 
+### Training-efficiency finding
+
+For this experiment, validation macro F1 peaked at epoch 14 (**0.9250**) and did not improve during the remaining epochs through the 25-epoch budget. This makes 25 epochs a practical upper bound for the current model, data split, and hyperparameters: training longer would add GPU time and cost without an observed validation benefit. This conclusion is specific to this configuration; a different model, dataset, or optimization schedule should be re-evaluated rather than assumed to follow the same curve.
+
 ## Why macro F1 is the primary metric
 
 Accuracy reports the fraction of correctly routed queries. Macro F1 is the primary model-selection metric because it computes F1 separately for every intent and averages them equally. It prevents strong performance on easy intents from hiding weak performance on difficult or easily confused ones. Because Banking77’s official test split has 40 examples per intent, macro and weighted F1 are expected to be very similar.
