@@ -84,6 +84,43 @@ OFFLINE_KAGGLE.md               Offline asset preparation notes
 results/                        Published metrics, predictions, and figures
 ```
 
+## Dataset quality and human annotation review
+
+This local workflow uses the actual [PolyAI Banking77](https://huggingface.co/datasets/PolyAI/banking77) CSV assets used by the training notebook: `categories.json` and `train.csv` in `intentscope-offline-assets/banking77/`. The notebook's seed 42 and 15% stratified validation split are reproduced from original training row positions. The official `test.csv` is never loaded by the quality workflow. Training, inference, published predictions, and existing metrics are unchanged.
+
+Install the small review dependencies in a local Python environment:
+
+```bash
+python -m pip install -r requirements-quality.txt
+```
+
+Place the Banking77 assets at the path above, or pass `--dataset-dir` to `audit`. On a connected machine, `python -m pip install datasets` and `python scripts/prepare_quality_data.py` download and write only the official dataset assets (no model). Existing offline assets can also be reused. Local assets are ignored by Git.
+
+```bash
+python scripts/quality_cli.py audit
+python scripts/quality_cli.py sample --target 200 --flagged-fraction 0.25 --seed 42
+streamlit run quality/review_app.py
+python scripts/quality_cli.py export
+python scripts/quality_cli.py clean
+python scripts/quality_cli.py report
+```
+
+The audit writes `quality-output/audit.json`, `records.json`, and `audit.md`. It checks missing or blank text, missing or invalid labels, exact duplicate text/label rows, conservative whitespace/case matches, identical text with conflicting labels, train/validation text overlap, class counts, and word-length outliers using the 1.5×IQR rule. Each record has a stable original-row ID and provenance. Findings are review candidates, not automatic errors.
+
+Sampling writes `quality-output/batch.json` with unique record IDs, reasons, and counts. The default 200 includes a 25% audit-flag supplement where available and fills the rest across labels. Use `--output quality-output/batch-special.json` to save another selectable batch. The app displays the original query and searchable taxonomy while hiding the source label until the first judgment is saved. It then shows the comparison, permits a documented revision, and displays the decision history. Reviews persist in `quality-output/reviews.sqlite`; export writes real current decisions to `reviews.json`. No synthetic or model-generated judgments are used. See [ANNOTATION_GUIDELINES.md](ANNOTATION_GUIDELINES.md) for proposed human-review rules.
+
+Cleaning is a separate, explicit export. By default it makes zero changes. To propose trimming only leading and trailing whitespace, run `python scripts/quality_cli.py clean --trim-outer-whitespace`. This writes `quality-output/cleaned/candidate.csv` and `changes.json`, retaining original text, label, source row, and unresolved flags. It never relabels or deletes rows. The report is `quality-output/report.md`; rerun `report` after reviews or cleaning to refresh counts. All `quality-output/` files, including the private review database, are local and ignored by Git.
+
+Run focused checks with `python -m pytest tests/test_quality.py -q --basetemp .pytest-tmp`.
+
+### Scope and interpretation
+
+- The source training rows are audited and split into train/validation. The official held-out test set is excluded from sampling, review, cleaning, and report decisions.
+- A source-label disagreement requires independent adjudication; it is not automatically a labeling error. A model error requires a separately validated reference and model prediction; the review app loads no model.
+- The length threshold is descriptive and may flag legitimate long queries. Normalization matches may also be legitimate variants. No finding is automatically deleted.
+- If no human review is complete, the report says `0 reviewed`; agreement, ambiguity, and disagreement counts are zero, with conclusions pending. The proposed close-intent rules need human validation.
+- The original model results support claims about the existing validation/test evaluation and its published metrics. Claims about annotation quality improvements, time saved, corrected labels, or model improvement require completed human review and further evaluation.
+
 ## Limitations and next steps
 
 - Banking77 is a narrow English-language benchmark; results do not establish production reliability across banks, regions, or languages.

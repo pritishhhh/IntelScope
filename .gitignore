@@ -12,3 +12,5 @@ results/*.npy
 __pycache__/
 *.py[cod]
 .DS_Store
+quality-output/
+.pytest-tmp/
