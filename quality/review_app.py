@@ -5,14 +5,23 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from quality.workflow import connect_reviews, export_reviews, read_json
+from quality.workflow import connect_reviews, export_reviews, read_json, reviewer_directory
 
 
 st.set_page_config(page_title="IntentScope review", layout="wide")
 st.title("IntentScope annotation review")
-st.caption("Human judgments are saved locally. Source labels appear only after the first saved judgment.")
+st.caption("Each reviewer keeps a separate local decision history. Source labels appear only after that reviewer saves a judgment.")
 
 root = Path(st.sidebar.text_input("Audit directory", "quality-output"))
+reviewer_id = st.sidebar.text_input("Reviewer ID", help="Use the same ID to resume your own reviews. Local IDs are not authenticated.")
+if not reviewer_id.strip():
+    st.info("Enter a reviewer ID to open your own review workspace.")
+    st.stop()
+try:
+    reviewer_dir = reviewer_directory(root, reviewer_id)
+except ValueError as exc:
+    st.error(str(exc))
+    st.stop()
 if not (root / "audit.json").exists() or not (root / "records.json").exists():
     st.info("Run the audit and sampling commands before opening the review app.")
     st.stop()
@@ -28,7 +37,7 @@ if any(item["record_id"] not in records or records[item["record_id"]]["source_sp
        for item in batch["items"]):
     st.error("Batch contains an ineligible or unknown record.")
     st.stop()
-conn = connect_reviews(root / "reviews.sqlite")
+conn = connect_reviews(reviewer_dir / "reviews.sqlite")
 completed = {row["record_id"] for row in conn.execute("SELECT record_id FROM reviews WHERE demo=0")}
 st.sidebar.metric("Progress", f"{len(completed.intersection(item['record_id'] for item in batch['items']))}/{len(batch['items'])}")
 only_pending = st.sidebar.checkbox("Only pending")
@@ -46,7 +55,7 @@ st.caption(f"Review reason: {', '.join(selected['reason'])}; audit flags: {', '.
 labels = audit["labels"]
 dispositions = ["labeled", "ambiguous", "needs_context"]
 issues = ["none", "possible_source_label", "ambiguous_text", "insufficient_context", "data_quality", "taxonomy_overlap", "other"]
-with st.form(f"review-{record['record_id']}"):
+with st.form(f"review-{reviewer_dir.name}-{record['record_id']}"):
     disposition = st.selectbox("Judgment", dispositions,
                                index=dispositions.index(prior["disposition"]) if prior else 0)
     choices = ["— no label —"] + labels
@@ -81,6 +90,7 @@ if prior:
     st.dataframe(history, use_container_width=True, hide_index=True)
 
 if st.sidebar.button("Export real reviews"):
-    count = export_reviews(conn, root / "reviews.json")
-    st.sidebar.success(f"Exported {count} reviews to {root / 'reviews.json'}")
+    export_path = reviewer_dir / "reviews.json"
+    count = export_reviews(conn, export_path)
+    st.sidebar.success(f"Exported {count} reviews to {export_path}")
 conn.close()

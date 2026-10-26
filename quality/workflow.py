@@ -24,6 +24,15 @@ def read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def reviewer_directory(audit_dir: Path, reviewer_id: str) -> Path:
+    """Give each self-selected reviewer ID a stable, separate local workspace."""
+    normalized_id = reviewer_id.strip().casefold()
+    if not normalized_id or len(normalized_id) > 64:
+        raise ValueError("Reviewer ID must contain 1–64 characters")
+    key = hashlib.sha256(normalized_id.encode("utf-8")).hexdigest()[:20]
+    return audit_dir / "reviewers" / key
+
+
 def load_source(dataset_dir: Path):
     """Read only official training data. Never open the official test CSV."""
     categories = read_json(dataset_dir / "categories.json")

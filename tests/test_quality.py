@@ -6,7 +6,7 @@ import pytest
 from sklearn.model_selection import train_test_split
 
 from quality.workflow import (audit, clean_candidates, connect_reviews, export_reviews,
-                              generate_report, read_json, sample_batch, save_review)
+                              generate_report, read_json, reviewer_directory, sample_batch, save_review)
 
 
 def fixture_dataset(tmp_path: Path):
@@ -86,6 +86,30 @@ def test_review_persistence_history_export_and_report(tmp_path):
     counts = generate_report(tmp_path / "audit", db, tmp_path / "cleaned", tmp_path / "report.md")
     assert counts == {"reviewed": 1, "agreement": 0, "disagreement": 1, "ambiguity": 0, "cleaning_changes": 0}
     assert "Reconsidered wording" in (tmp_path / "report.md").read_text(encoding="utf-8")
+
+
+def test_reviewer_workspaces_keep_judgments_separate(tmp_path):
+    audit(fixture_dataset(tmp_path), tmp_path / "audit")
+    sample_batch(tmp_path / "audit", target=4)
+    record = read_json(tmp_path / "audit" / "records.json")[0]
+    alice_dir = reviewer_directory(tmp_path / "audit", "Alice")
+    bob_dir = reviewer_directory(tmp_path / "audit", "bob")
+    assert alice_dir == reviewer_directory(tmp_path / "audit", " alice ")
+    assert alice_dir != bob_dir
+    assert alice_dir.is_relative_to(tmp_path / "audit" / "reviewers")
+    with pytest.raises(ValueError):
+        reviewer_directory(tmp_path / "audit", "   ")
+    alice = connect_reviews(alice_dir / "reviews.sqlite")
+    save_review(alice, record, ["a", "b"], "a", "labeled", 5, "Clear", "none")
+    alice.close()
+    bob = connect_reviews(bob_dir / "reviews.sqlite")
+    assert bob.execute("SELECT COUNT(*) FROM reviews").fetchone()[0] == 0
+    save_review(bob, record, ["a", "b"], None, "ambiguous", 2, "Both possible", "taxonomy_overlap")
+    bob.close()
+    alice_count = generate_report(tmp_path / "audit", alice_dir / "reviews.sqlite", tmp_path / "cleaned", alice_dir / "report.md")
+    bob_count = generate_report(tmp_path / "audit", bob_dir / "reviews.sqlite", tmp_path / "cleaned", bob_dir / "report.md")
+    assert alice_count["agreement"] == 1 and alice_count["ambiguity"] == 0
+    assert bob_count["agreement"] == 0 and bob_count["ambiguity"] == 1
 
 
 def test_cleaning_preserves_source_and_records_changes(tmp_path):
