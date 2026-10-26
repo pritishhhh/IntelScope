@@ -10,9 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean, median
 
-from sklearn.model_selection import train_test_split
-
-
 DATASET = "PolyAI/banking77"
 SEED = 42
 VALIDATION_SIZE = 0.15
@@ -53,6 +50,8 @@ def assign_splits(records: list[dict], categories: list[str], seed: int = SEED, 
                 and min(counts.values(), default=0) >= 2 and n_val >= len(counts)
                 and len(records) - n_val >= len(counts))
     if eligible:
+        from sklearn.model_selection import train_test_split
+
         label_to_id = {name: index for index, name in enumerate(categories)}
         train_idx, val_idx = train_test_split(list(range(len(records))), test_size=validation_size,
                                              random_state=seed, stratify=[label_to_id[label] for label in labels])
